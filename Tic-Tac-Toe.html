@@ -1,0 +1,106 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Tic-Tac-Toe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<style>body{margin: 0;}#background{background: darkgreen;border: 10px solid brown;}</style>
+<body style="text-align: center;"><canvas id="background" width="500px" height="500px"></canvas></body>
+<script>
+    // canvas element,context,Player Turns,Is the game Ended?
+    var background = document.getElementById("background"),ctx = background.getContext("2d"),nextPlayer,ended,boxState;  
+    // the coordinate of box center,The ways to win [Sample Space]
+    const boxCenterCoor = {"x":[150,250,350,150,250,350,150,250,350],"y":[150,150,150,250,250,250,350,350,350]},winSample = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    // DRAW FUNC
+    function drawBackground(){
+        ctx.fillStyle = "white";
+        ctx.fillRect(100,200,300,5);
+        ctx.fillRect(100,300,300,5);
+        ctx.fillRect(200,100,5,300);
+        ctx.fillRect(300,100,5,300);
+    }
+    // draw Text function
+    drawText = (text,x,y) => {ctx.font = "24px Rubrik";ctx.fillText(text,x,y);}
+    const draw = {
+        // DRAW TEXT
+        text(text,x,y){ctx.font = "24px Rubrik";ctx.fillText(text,x,y);},
+        /* DRAW STROKE
+        LINE: x1,y1,x2,y2,undefined,line width,color,"line"
+        CIRCLE: centerX,centerY,startAngle,endAngel,radius,line width,color,"circle"
+        */
+        line(x1,y1,x2,y2){ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);},
+        stroke(x1,y1,x2,y2,r,lineWidth,color,type){
+            ctx.beginPath();
+            type == "circle" ? ctx.arc(x1,y1,r,x2,y2) : draw.line(x1,y1,x2,y2);
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = color;
+            ctx.stroke();
+            ctx.closePath();
+        }
+    };
+    // draw "O"
+    drawO = boxIndex => draw.stroke(boxCenterCoor.x[boxIndex],boxCenterCoor.y[boxIndex],0,2 * Math.PI,30,5,"white","circle");
+    // draw "X"
+    drawX = boxIndex =>{
+        draw.stroke(boxCenterCoor.x[boxIndex] - 30, boxCenterCoor.y[boxIndex] - 30,boxCenterCoor.x[boxIndex] + 30, boxCenterCoor.y[boxIndex] + 30,undefined,5,"white","line");
+        draw.stroke(boxCenterCoor.x[boxIndex] - 30, boxCenterCoor.y[boxIndex] + 30,boxCenterCoor.x[boxIndex] + 30, boxCenterCoor.y[boxIndex] - 30,undefined,5,"white","line");
+    }
+    // draw Restart button
+    drawRestart_btn = () =>{
+        draw.stroke(470,25,0.05*2*Math.PI,0.9*2*Math.PI,15,4,"white","circle");
+        draw.stroke(483,19,483,7,undefined,4,"white","line");
+        draw.stroke(473,18,484,18,undefined,4,"white","line");
+    }
+    // draw red line when win
+    drawWinner = (start,end) => {draw.stroke(boxCenterCoor.x[start], boxCenterCoor.y[start],boxCenterCoor.x[end],boxCenterCoor.y[end],undefined,8,"red","line");ended =true;}
+    // check if win
+    gameCheck = x => (boxState[x[0]] == boxState[x[1]] && boxState[x[1]] == boxState[x[2]] && boxState[x[0]]) ?drawWinner(x[0],x[2]):(boxState[0]&&boxState[1]&&boxState[2]&&boxState[3]&&boxState[4]&&boxState[5]&&boxState[6]&&boxState[7]&&boxState[8])!=undefined ? console.log("draw"):null;
+    // validate the selected box and call draw func
+    function boxSelection(i){
+        if(!boxState[i] && !ended && i<9 && i>-1){
+            nextPlayer == "O" ? drawO(i) : drawX(i);
+            boxState[i] = nextPlayer;
+            winSample.forEach(gameCheck);
+            nextPlayer = nextPlayer == "O" ? "X" : "O";
+            ctx.clearRect(0, 0, 44, 64);
+            draw.text(nextPlayer,20,40);
+        }
+    }
+    function restart(){
+        ctx.clearRect(0, 0, 500, 500);
+        drawBackground();
+        draw.text("O - turns",20,40);
+        drawRestart_btn();
+        boxState = [];
+        nextPlayer = "O";
+        ended = false;
+    }
+    restart();
+    // get mouse click coordinate
+    function getClickPos(canvas, evt) {
+        var rect = canvas.getBoundingClientRect();
+        return {x: evt.clientX - rect.left,y: evt.clientY - rect.top};
+    }
+    // get the box click [coordinate]
+    function clickedBox(x,y){
+        boxRange = [[110,190],[210,290],[310,390]];
+        if(x>100 && x<400 && y>100 && y<400){
+            var i = 0;
+            boxRange.forEach((z) => {
+                x = (x>z[0] && x<z[1]) ? i:x;
+                y = (y>z[0] && y<z[1]) ? i:y;
+                i++; 
+            });
+            boxSelection(3*y + x);
+        }else if(x>440 && x<495 && y>0 && y<50){
+            // restart btn
+            restart();
+        }
+    }
+    background.addEventListener('click',(e) => {
+        var mousePos = getClickPos(background, e);
+        clickedBox(mousePos.x,mousePos.y);
+    }, false);
+</script>
+</html>
