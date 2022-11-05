@@ -1,107 +1,737 @@
-<!doctype html>
 <html>
-<head>
-    <meta charset="utf-8">
-    <title>Tic-Tac-Toe</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="author" content="Eii Chee Hieng">
-</head>
-<style>body{margin: 0;}#background{background: darkgreen;border: 10px solid brown;}</style>
-<body style="text-align: center;"><canvas id="background" width="500px" height="500px"></canvas></body>
-<script>
-    // canvas element,context,Player Turns,Is the game Ended?
-    var background = document.getElementById("background"),ctx = background.getContext("2d"),nextPlayer,ended,boxState;  
-    // the coordinate of box center,The ways to win [Sample Space]
-    const boxCenterCoor = {"x":[150,250,350,150,250,350,150,250,350],"y":[150,150,150,250,250,250,350,350,350]},winSample = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-    // DRAW FUNC
-    function drawBackground(){
-        ctx.fillStyle = "white";
-        ctx.fillRect(100,200,300,5);
-        ctx.fillRect(100,300,300,5);
-        ctx.fillRect(200,100,5,300);
-        ctx.fillRect(300,100,5,300);
-    }
-    // draw Text function
-    drawText = (text,x,y) => {ctx.font = "24px Rubrik";ctx.fillText(text,x,y);}
-    const draw = {
-        // DRAW TEXT
-        text(text,x,y){ctx.font = "24px Rubrik";ctx.fillText(text,x,y);},
-        /* DRAW STROKE
-        LINE: x1,y1,x2,y2,undefined,line width,color,"line"
-        CIRCLE: centerX,centerY,startAngle,endAngel,radius,line width,color,"circle"
-        */
-        line(x1,y1,x2,y2){ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);},
-        stroke(x1,y1,x2,y2,r,lineWidth,color,type){
-            ctx.beginPath();
-            type == "circle" ? ctx.arc(x1,y1,r,x2,y2) : draw.line(x1,y1,x2,y2);
-            ctx.lineWidth = lineWidth;
-            ctx.strokeStyle = color;
-            ctx.stroke();
-            ctx.closePath();
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tic Tac Toe</title>
+        <style>
+            body{
+                text-align: center;
+                position:fixed;
+                width: calc(100% - 16px);
+                height: calc(100% - 16px);
+                margin: 8px;
+            }
+            
+            #canvasContainer{
+                width: calc(100%);
+                height: calc(100% - 48px);
+                display: block;
+                background-color: transparent;
+                margin: 0px auto;
+            }
+
+            .buttonBar{
+                margin: 0;
+                height: 24px;
+                width: 100%;
+            }
+            .buttonBar button{
+                background: transparent;
+                border: none;
+                font-size: 18px;
+                position: absolute;
+                transition: all .3s;
+            }
+            .buttonBar button:active{
+                font-size: 14px;
+            }
+            .buttonBar button:nth-child(1){
+                left: 0;
+            }
+            .buttonBar button:nth-child(2){
+                right: 0;
+            }
+            .popUp{
+                background: white;
+                display: none;
+                height: 100%;
+                left: 0;
+                position: fixed;
+                top: 0;
+                width: 100%;
+                z-index: 2;
+            }
+            .popUp button{
+                border: none;
+                display: inline-block;
+                margin: 5px;
+                padding: 12px;
+                text-align: center;
+                width: 95%;
+            }
+            .popUp .content{
+                text-align: center;
+            }
+            .popUp.show{
+                display: block;
+            }
+            @media screen and (max-width: 200px) {
+                body{
+                    margin: 0;
+                    width: 100%;
+                    height: 100%;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="buttonBar">
+            <button onclick="game.undo()">Undo</button>
+            <button onclick="game.newGame()">New Game</button>
+        </div>
+        <div id="canvasContainer"> </div>
+        <div class="buttonBar">
+            <button onclick="modePopup.show()">Mode</button>
+            <button onclick="themePopup.show()">Theme</button>
+        </div>
+
+        <div id="themePopup" class="popUp" onclick="themePopup.dismiss()">
+            <div class="header">
+                <p>Theme</p>
+            </div>
+            <div class="content">
+
+            </div>
+        </div>
+        <div id="modePopup" class="popUp" onclick="modePopup.dismiss()">
+            <div class="header">
+                <p>Mode</p>
+            </div>
+            <div class="content">
+        </div>
+    </body>
+    <script>
+        class Stack{
+            constructor(){
+                this.list = [];
+            }
+
+            //@FUNCTION     Empty the list
+            clear = () => this.list = [];
+
+            //@FUNCTION     determine whether stack is empty
+            isEmpty = () => this.list.length == 0;
+
+            //@FUNCTION     POP item from stack              
+            pop = () => (this.isEmpty())? false : this.list.pop();
+
+            //@FUNCTION     PUSH item into stack
+            push = (item) => this.list.push(item);
+        };
+
+        const canvas = {
+            background: document.createElement("canvas"),
+            lineWidth:5,
+            margin:48,
+            shapeMargin:16,
+            shapeLineWidth:10,
+            
+
+            drawLine(){
+                const context = this.background.getContext("2d");
+                context.strokeStyle = theme.color.line;
+                context.lineWidth = this.lineWidth;
+                context.lineCap = "round";
+
+                for(let i = 0; i < configuration.size - 1; i++){
+                    let origin = {x:this.margin ,y:this.margin + (this.background.height - this.margin * 2)/configuration.size * (i + 1)};
+                    let length = this.background.height - this.margin * 2;
+
+                    context.beginPath();
+
+                    //horizontal line
+                    context.moveTo(origin.x , origin.y);
+                    context.lineTo(this.background.height - origin.x, origin.y);
+
+                    //vertical line
+                    context.moveTo(origin.y , origin.x);
+                    context.lineTo(origin.y , this.background.height - origin.x);
+
+                    context.stroke();
+                    context.closePath();
+                }
+            },
+            drawShape(x , y , shape){
+                if(this.background === undefined) return false;
+                if(x < 0 || x > configuration.size - 1 || y < 0 || y > configuration.size - 1) return false;
+
+                const shapeContext = this.background.getContext("2d");
+
+                let boxSize = (this.background.height - this.margin * 2) / configuration.size;
+                                
+                x = this.margin + x * boxSize;
+                y = this.margin + y * boxSize;
+
+
+                shapeContext.beginPath();
+                shapeContext.lineWidth = this.shapeLineWidth;
+                shapeContext.strokeStyle = (shape)?theme.color.shape.x : theme.color.shape.o;
+
+                if(shape == 0){//Draw Circle
+                    radius = (this.background.height - this.margin * 2)/(2 * configuration.size) - this.shapeMargin;
+                    x += radius + this.shapeMargin;
+                    y += radius + this.shapeMargin;
+                    shapeContext.arc(x , y , radius , 0, 2 * Math.PI);
+                }else{//Draw Cross
+                    length = (this.background.height - this.margin * 2)/configuration.size - 2 * this.shapeMargin;
+                    x += this.shapeMargin;
+                    y += this.shapeMargin;
+                    shapeContext.moveTo( x ,  y);
+                    shapeContext.lineTo( x + length ,  y + length);
+                    shapeContext.moveTo( x + length ,  y );
+                    shapeContext.lineTo( x ,  y + length);
+                }
+
+                shapeContext.stroke();
+                shapeContext.closePath();
+                return true;
+            },
+            eraseShape(x , y){
+                if(this.background === undefined) return false;
+                if(x < 0 || x > configuration.size - 1 || y < 0 || y > configuration.size - 1) return false;
+
+                const shapeContext = this.background.getContext("2d");
+                
+                let boxSize = (this.background.height - this.margin * 2) / configuration.size;
+
+                x = this.margin + x * boxSize + this.lineWidth/2;
+                y = this.margin + y * boxSize + this.lineWidth/2;
+                length = boxSize - this.lineWidth;
+
+                //Draw a square box same color with background to cover the shape
+                shapeContext.beginPath();
+                shapeContext.fillStyle = theme.color.background;
+                shapeContext.fillRect(x,y,length,length);
+                shapeContext.closePath();
+                return true;
+            },
+            drawWinLine(start , end){
+                if(start.x === undefined) return false;
+                if(start.y === undefined) return false;
+                if(end.x === undefined) return false;
+                if(end.y === undefined) return false;
+
+                if(start.x < 0 || start.x > configuration.size - 1) return false;
+                if(start.y < 0 || start.y > configuration.size - 1) return false;
+                if(end.x < 0 || end.x > configuration.size - 1) return false;
+                if(end.x < 0 || end.y > configuration.size - 1) return false;
+
+                const context = this.background.getContext("2d");
+
+                let boxSize = (this.background.height - this.margin * 2) / configuration.size;
+                let radius = (this.background.height - this.margin * 2)/(2 * configuration.size);
+
+                start.x = this.margin + start.x * boxSize + radius;
+                start.y = this.margin + start.y * boxSize + radius;
+                end.x = this.margin + end.x * boxSize + radius;
+                end.y = this.margin + end.y * boxSize + radius;
+
+                context.beginPath();
+                context.lineWidth = this.shapeLineWidth;
+                context.strokeStyle = (game.currentPlayer)?theme.color.shape.x : theme.color.shape.o;
+                context.moveTo( start.x ,  start.y);
+                context.lineTo( end.x ,  end.y);
+                context.stroke();
+                context.closePath();
+
+                return true;
+            },
+            render(){
+                if(this.background === undefined) return false;
+
+                //Set Canvas size
+                if(isVertical())
+                    this.background.height = this.background.width = document.getElementById("canvasContainer").offsetWidth;
+                else
+                    this.background.height = this.background.width = document.getElementById("canvasContainer").offsetHeight;
+                               
+
+                const context = this.background.getContext("2d");
+                
+                if(this.background.width < 400){
+                    if(this.background.width < 200){
+                        this.margin = 12;
+                        this.shapeMargin = 4;
+                        this.shapeLineWidth = 2;
+                        this.lineWidth = 2;
+                    }else{
+                        this.margin = 24;
+                        this.shapeMargin = 8;
+                        this.shapeLineWidth = 5;
+                        this.lineWidth = 3;
+                    }
+                }else{
+                    this.margin = 48;
+                    this.shapeMargin = 16;
+                    this.shapeLineWidth = 10;
+                    this.lineWidth = 5;
+                }
+
+                //render background
+                context.fillStyle = theme.color.background;
+                context.fillRect(0,0,this.background.height,this.background.height);
+                
+                canvas.drawLine();
+                
+                //re-render the shape player placed
+                game.placementOrder.list.forEach((element,index) => {
+                    canvas.drawShape(element.column , element.row , index%2);
+                });
+
+                return true;
+            },
+            getBox(coordinate){
+                if(coordinate.x == undefined || coordinate.y == undefined) return undefined;
+                
+                //Determine whether is range
+                if(
+                    coordinate.x <= this.margin || 
+                    coordinate.y <= this.margin ||
+                    coordinate.x >= this.background.offsetHeight - this.margin ||
+                    coordinate.y >= this.background.offsetHeight - this.margin 
+                    )
+                    return undefined;
+
+                let boxSize = (this.background.height - this.margin * 2) / configuration.size;
+
+                // (x - margin) / sizeOfBox
+                column = parseInt((coordinate.x - this.margin) / boxSize);
+                row = parseInt((coordinate.y - this.margin) / boxSize);
+
+                return {
+                    column: column,
+                    row: row
+                };
+            }
+        };
+        
+        const canvasEvent = {
+            __proto__:canvas,
+
+            //@FUNCTION     perform task when canvas is clicked
+            click(event){
+                let box = this.getBox({
+                    x:event.offsetX,
+                    y:event.offsetY
+                });
+                if(box === undefined) return false;
+                game.select(box.column , box.row);
+            }
+        };
+
+        const configuration = {
+            __proto__:canvas,
+            size:3,
+            maxSize:4,
+
+            setSize(n){
+                n = parseInt(n)
+                if(n === NaN) return false;
+                if(n < 3 || n > this.maxSize) return false;
+
+                localStorage.size = this.size = n;
+                canvas.render();
+                return true;
+            }
+        };
+
+        const game = {
+            __proto__:canvas,
+            boxState:[[],[],[],[],[],[]],
+            currentPlayer:0,
+            gameOver:false,
+            placementOrder: new Stack(),
+            winner:undefined,
+
+            //@FUNCTION     Perform game check
+            checkGame(){
+                if(this.isWin()) this.winner = this.currentPlayer;
+                if(!this.isWin() && !this.isDraw()) return;
+                this.gameOver = true;
+            },
+
+            //@FUNCTION     Determine whether is game draw
+            isDraw(){
+                return (
+                    this.placementOrder.list.length >= configuration.size * configuration.size &&
+                    this.winner == undefined
+                );
+            },
+            
+            //@FUNCTION     Determine whether game is over
+            isGameOver() {return this.gameOver},
+
+            // @FUNCTION    Check if any player win
+            isWin(){
+                if(this.winner !== undefined) return true;
+
+                var diagonal = [] , diagonal2 = [];
+                
+                for(var i = 0; i < configuration.size; i++){
+                    if(this.boxState[i][i] == this.currentPlayer)
+                        diagonal.push(i);
+                    if(this.boxState[configuration.size - i - 1][i] == this.currentPlayer)
+                        diagonal2.push(i);
+                }
+
+                //Win by occupied diagonal
+                if(diagonal.length == configuration.size){
+                    canvas.drawWinLine(
+                        {
+                            x:0,
+                            y:0
+                        },
+                        {
+                            x:configuration.size - 1,
+                            y:configuration.size - 1
+                        }
+                    );
+                    return true;
+                }
+                if(diagonal2.length == configuration.size){
+                    canvas.drawWinLine(
+                        {
+                            x:configuration.size - 1,
+                            y:0
+                        },
+                        {
+                            x:0,
+                            y:configuration.size - 1
+                        }
+                    );
+                    return true;
+                }
+
+                //If diagonal doesn't occupy current player's shape, it is impossible to win
+                if(diagonal.length == 0) return false;
+
+                var win = false;
+
+                diagonal.forEach((element) => {
+                    var row = 0,column = 0;
+                    for(var i = 0;i < configuration.size; i++){
+                        if(this.boxState[i][element] == this.currentPlayer) row++;
+                        if(this.boxState[element][i] == this.currentPlayer) column++;
+                    }
+
+
+                    //Win by occupy a row
+                    if(row == configuration.size){
+                        canvas.drawWinLine(
+                            {
+                                x:0,
+                                y:element
+                            },
+                            {
+                                x:configuration.size - 1,
+                                y:element
+                            }
+                        );
+                        win = true;
+                        return;
+                    } 
+
+                    //Win by occupy a column
+                    if(column == configuration.size){
+                        canvas.drawWinLine(
+                            {
+                                x:element,
+                                y:0
+                            },
+                            {
+                                x:element,
+                                y:configuration.size - 1
+                            }
+                        );
+                        win = true;
+                        return;
+                    }
+                });
+                
+                return win;
+            },
+
+            //@FUNCTION     Start a new game
+            newGame(){
+                this.gameOver = false;
+                this.currentPlayer = 0;
+                this.winner = undefined;
+                this.boxState = [[],[],[],[],[],[]];
+                this.placementOrder.clear();
+                this.render();
+            },
+
+            //@FUNCTION     Select box
+            select(column , row){
+                if(this.isGameOver()) return false;
+                if(column < 0 || column > configuration.size - 1 || row < 0 || row > configuration.size - 1) return false;
+                if(this.boxState[column][row] !== undefined) return false;
+
+                this.boxState[column][row] = this.currentPlayer;
+                this.drawShape(column , row , game.currentPlayer);
+                this.placementOrder.push({column,row});
+                this.checkGame();
+                this.currentPlayer = !this.currentPlayer;
+                if(this.isGameOver()) {
+                    var message;
+                    if(this.isWin()){
+                        message = (this.winner == 0)? "O Win!\nStart New Game?" : "X Win!\nStart New Game?";
+                    }else{
+                        message = "Draw\nStart New Game?";
+                    }
+                    if(confirm(message)){
+                        this.newGame();
+                    }
+                }
+                return true;
+            },
+
+            //@FUNCTION     Undo previous step , if game doesn't end
+            undo(){
+                if(this.isGameOver()) return false;
+                if(this.placementOrder.isEmpty()) return false;
+                this.currentPlayer = !this.currentPlayer;
+                var lastPlacement = this.placementOrder.pop();
+                this.eraseShape(lastPlacement.column,lastPlacement.row);
+                this.boxState[lastPlacement.column][lastPlacement.row] = undefined;
+                return true;
+            }
+        };
+
+        
+        const theme = {
+            __proto__:canvas,
+            color:{
+                background:"#008000",
+                line:"white",
+                shape:{
+                    o:"white",
+                    x:"white"
+                }
+            },
+            themeOption:{
+                "default":{
+                    background:"#008000",
+                    line:"white",
+                    shape:{
+                        o:"white"
+                    }
+                },
+                "minimalLight":{
+                    background:"white",
+                    line:"#00315f",
+                    shape:{
+                        o:"#05a1cc",
+                        x:"red"
+                    }
+                },
+                "minimalDark":{
+                    background:"black",
+                    line:"#0071ff",
+                    shape:{
+                        o:"#1581cc",
+                        x:"red"
+                    }
+                }
+            },
+
+            //@FUNCTION     get theme properties
+            getTheme(themeName){
+                let themeOption = this.getThemeList();
+                var option = undefined;
+
+                //Determine Existence of theme
+                for(
+                    let i = 0 , arrayLength = themeOption.length;
+                    i < arrayLength;
+                    i++)
+                {
+                    if(themeOption[i] == themeName){
+                        option = theme.themeOption[themeOption[i]];
+                        break;
+                    }
+                }
+                return option;
+            },
+
+            //@FUNCTION     get available theme list
+            getThemeList(){return Object.keys(theme.themeOption)},
+            
+            //@FUNCTION     get current theme name
+            getThemeName(){return localStorage.gameTheme},
+
+            //@FUNCTION     set background color
+            setBackgroundColor(color){
+                this.color.background = color;
+                return true;
+            },
+
+            //@FUNCTION     set line color
+            setLineColor(color){
+                this.color.line = color;
+                return true;
+            },
+
+            //@FUNCTION     set shape color
+            setShapeColor(colorO,colorX = colorO){
+                this.color.shape.o = colorO;
+                this.color.shape.x = colorX;
+                return true;
+            },
+
+            //@FUNCTION     set theme according to @PARAM themeName
+            setTheme(themeName){
+                var option = theme.getTheme(themeName);
+
+                if(option == undefined) return false;
+
+                //Save new theme settings into localStorage
+                localStorage.gameTheme = themeName;
+
+                if(option.background !== undefined){
+                    this.setBackgroundColor(option.background);
+                    document.body.style.background = option.background;
+                }
+               
+                if(option.line !== undefined)
+                    this.setLineColor(option.line);
+                
+                if(option.shape.o !== undefined && option.shape.x !== undefined)
+                    this.setShapeColor(option.shape.o ,option.shape.x);
+                else if(option.shape.o !== undefined)
+                    this.setShapeColor(option.shape.o);
+                
+                canvas.render();
+                
+                //set all button text color
+                document.querySelectorAll("button").forEach((element) =>{
+                    element.style.color = option.line;
+                });
+
+                return true;
+            }
+        };
+
+        
+        //Get maxsize
+        function getMaxSize(){
+            if(canvas.background.height < 100 ) 
+                return 4;
+            else if(canvas.background.height < 200 ) 
+                return 5;
+            else
+                return 6;
         }
-    };
-    // draw "O"
-    drawO = boxIndex => draw.stroke(boxCenterCoor.x[boxIndex],boxCenterCoor.y[boxIndex],0,2 * Math.PI,30,5,"white","circle");
-    // draw "X"
-    drawX = boxIndex =>{
-        draw.stroke(boxCenterCoor.x[boxIndex] - 30, boxCenterCoor.y[boxIndex] - 30,boxCenterCoor.x[boxIndex] + 30, boxCenterCoor.y[boxIndex] + 30,undefined,5,"white","line");
-        draw.stroke(boxCenterCoor.x[boxIndex] - 30, boxCenterCoor.y[boxIndex] + 30,boxCenterCoor.x[boxIndex] + 30, boxCenterCoor.y[boxIndex] - 30,undefined,5,"white","line");
-    }
-    // draw Restart button
-    drawRestart_btn = () =>{
-        draw.stroke(470,25,0.05*2*Math.PI,0.9*2*Math.PI,15,4,"white","circle");
-        draw.stroke(483,19,483,7,undefined,4,"white","line");
-        draw.stroke(473,18,484,18,undefined,4,"white","line");
-    }
-    // draw red line when win
-    drawWinner = (start,end) => {draw.stroke(boxCenterCoor.x[start], boxCenterCoor.y[start],boxCenterCoor.x[end],boxCenterCoor.y[end],undefined,8,"red","line");ended =true;}
-    // check if win
-    gameCheck = x => (boxState[x[0]] == boxState[x[1]] && boxState[x[1]] == boxState[x[2]] && boxState[x[0]]) ?drawWinner(x[0],x[2]):(boxState[0]&&boxState[1]&&boxState[2]&&boxState[3]&&boxState[4]&&boxState[5]&&boxState[6]&&boxState[7]&&boxState[8])!=undefined ? console.log("draw"):null;
-    // validate the selected box and call draw func
-    function boxSelection(i){
-        if(!boxState[i] && !ended && i<9 && i>-1){
-            nextPlayer == "O" ? drawO(i) : drawX(i);
-            boxState[i] = nextPlayer;
-            winSample.forEach(gameCheck);
-            nextPlayer = nextPlayer == "O" ? "X" : "O";
-            ctx.clearRect(0, 0, 44, 64);
-            draw.text(nextPlayer,20,40);
+
+        function initialization(){
+            if(localStorage.gameTheme == undefined)
+                localStorage.setItem("gameTheme","default");
+
+            theme.setTheme(localStorage.gameTheme);
+            
+            //initiate max size
+            configuration.maxSize = getMaxSize();
+
+            if(localStorage.size == undefined)
+                localStorage.setItem("size",3);
+            
+            configuration.setSize(localStorage.size);
+
+            return canvas.render();
         }
-    }
-    function restart(){
-        ctx.clearRect(0, 0, 500, 500);
-        drawBackground();
-        draw.text("O - turns",20,40);
-        drawRestart_btn();
-        boxState = [];
-        nextPlayer = "O";
-        ended = false;
-    }
-    restart();
-    // get mouse click coordinate
-    function getClickPos(canvas, evt) {
-        var rect = canvas.getBoundingClientRect();
-        return {x: evt.clientX - rect.left,y: evt.clientY - rect.top};
-    }
-    // get the box click [coordinate]
-    function clickedBox(x,y){
-        boxRange = [[110,190],[210,290],[310,390]];
-        if(x>100 && x<400 && y>100 && y<400){
-            var i = 0;
-            boxRange.forEach((z) => {
-                x = (x>z[0] && x<z[1]) ? i:x;
-                y = (y>z[0] && y<z[1]) ? i:y;
-                i++; 
-            });
-            boxSelection(3*y + x);
-        }else if(x>440 && x<495 && y>0 && y<50){
-            // restart btn
-            restart();
+
+        //Determine whether device is in vertical mode
+        isVertical = () => (window.innerHeight > window.innerWidth);
+
+
+        const themePopup = {
+            "popup":document.getElementById("themePopup"),
+            "content":document.getElementById("themePopup").querySelector(".content"),
+
+            //@FUNCTION     hide popup
+            dismiss(){
+                this.popup.classList.remove("show");
+            },
+
+            //@FUNCTION     initialization
+            initialize(){
+                this.popup.style.background = theme.color.background;
+                this.popup.style.color = theme.color.line;
+                this.content.innerHTML = "";
+                theme.getThemeList().forEach((element) =>{
+                    let button = document.createElement("button");
+                    let themeObject = theme.getTheme(element);
+                    button.innerHTML = element;
+                    button.style.border = `2px solid ${themeObject.line}`;
+                    button.style.color = themeObject.line;
+                    button.style.background = themeObject.background;
+                    button.setAttribute("onclick",`theme.setTheme('${element}')`);
+                    this.content.append(button);
+                });
+            },
+
+            //@FUNCTION     show popup
+            show(){
+                this.initialize();
+                this.popup.classList.add("show");
+            }
+        };
+
+        const modePopup = {
+            "popup":document.getElementById("modePopup"),
+            "content":document.getElementById("modePopup").querySelector(".content"),
+
+            //@FUNCTION     hide popup
+            dismiss(){
+                this.popup.classList.remove("show");
+            },
+
+            //@FUNCTION     initialization
+            initialize(){
+                this.popup.style.background = theme.color.background;
+                this.popup.style.color = theme.color.line;
+                this.content.innerHTML = "";
+                
+                for(var i = 3;i <= configuration.maxSize;i++){
+                    let button = document.createElement("button");
+
+                    button.innerHTML = `${i} x ${i}`;
+                    button.style.border = `2px solid ${theme.color.line}`;
+                    button.style.color = theme.color.line;
+                    button.style.background = theme.color.background;
+                    button.setAttribute("onclick",`configuration.setSize('${i}')`);
+                    this.content.append(button);
+                }
+            },
+
+            //@FUNCTION     show popup
+            show(){
+                this.initialize();
+                this.popup.classList.add("show");
+            }
+        };
+
+        {
+            if(!initialization()) console.log("ERROR: Failed to render.")
+
+            document.getElementById("canvasContainer").append(canvas.background);
+            
+            
+            window.onresize = function(){
+                //Re-render (60 fps) if resized
+                setTimeout(canvas.render(),16);
+
+                //Update max size
+                configuration.maxSize = getMaxSize();
+
+                if(configuration.size > configuration.maxSize)
+                    configuration.setSize(configuration.maxSize);
+
+            } 
+
+            //Handle Canvas click event
+            canvas.background.onmousedown = (event) => canvasEvent.click(event);
         }
-    }
-    background.addEventListener('click',(e) => {
-        var mousePos = getClickPos(background, e);
-        clickedBox(mousePos.x,mousePos.y);
-    }, false);
-</script>
+
+    </script>
 </html>
